@@ -127,3 +127,111 @@ Both backend and frontend services are currently active on your system. You can 
 *   Toggle shipping methods (Standard vs Express) and watch the summary total adjust by $10.
 *   Once Stripe keys are set, input the Stripe Test Card (`4242 4242 4242 4242` with any valid expiration date and CVC) and click **Place Order**.
 *   Confirm you are redirected to the **Order Success Page** showing details of your purchase. The shopping cart should be cleared.
+
+---
+
+## 🚀 Vercel Deployment Walkthrough
+
+This section outlines how to deploy both the Express Backend and Vite Frontend on Vercel from your GitHub repository.
+
+### 🏗️ 1. Architecture Setup
+Because your project is a Monorepo structured with separate subdirectories (`/backend` and `/frontend`), you will deploy them as **two separate projects** in Vercel. Both projects will link to the same GitHub repository, but each will use a different **Root Directory**.
+
+```
+                    ┌─────────────────────────┐
+                    │    GitHub Repository    │
+                    │   (kenzo4k/sharabia)    │
+                    └────────────┬────────────┘
+                                 │
+                 ┌───────────────┴───────────────┐
+                 ▼                               ▼
+       ┌──────────────────┐            ┌──────────────────┐
+       │ Vercel Project 1 │            │ Vercel Project 2 │
+       │     (Backend)    │            │    (Frontend)    │
+       └──────────────────┘            └──────────────────┘
+```
+
+---
+
+### 💾 2. Prerequisites & Database Setup
+Before initiating deployment on Vercel:
+1. **MongoDB Atlas IP Whitelisting**:
+   - Because Vercel Serverless Functions use dynamic IP addresses, you **must allow connections from anywhere** on your database cluster.
+   - Go to your **MongoDB Atlas Console** ➡️ **Network Access** ➡️ Click **Add IP Address** ➡️ Choose **Allow Access From Anywhere** (`0.0.0.0/0`) and save.
+2. **Stripe API Keys**:
+   - Go to your **Stripe Dashboard** (in developer/test mode) and locate your **Publishable Key** (`pk_test_...`) and **Secret Key** (`sk_test_...`).
+
+---
+
+### 🚀 3. Step-by-Step Backend Deployment
+Your backend repository already contains a custom `backend/vercel.json` file configuring Vercel Serverless rules.
+
+1. Log in to your [Vercel Dashboard](https://vercel.com).
+2. Click **Add New** ➡️ **Project**.
+3. Import your GitHub repository (`kenzo4k/sharabia`).
+4. In the configuration options, set:
+   * **Project Name**: `sharabia-backend` (or a custom name)
+   * **Framework Preset**: Choose **Other**
+   * **Root Directory**: Click *Edit* and select the **`backend`** folder.
+5. **Environment Variables**: Expand this section and add:
+
+| Key | Value | Description |
+| :--- | :--- | :--- |
+| `MONGODB_URI` | `mongodb+srv://...` | Your production MongoDB connection URI. |
+| `JWT_SECRET` | *(Any secure random string)* | Used for generating JSON Web Tokens. |
+| `STRIPE_SECRET_KEY` | `sk_test_...` | Your Stripe Secret Key. |
+| `CLIENT_URL` | `http://localhost:5173` | *(Temporary)* We will update this to your final Frontend URL in Step 5. |
+
+6. Click **Deploy**.
+7. Once deployment is complete, copy the generated deployment domain (e.g., `https://sharabia-backend.vercel.app`).
+
+---
+
+### 🎨 4. Step-by-Step Frontend Deployment
+The frontend has a `frontend/vercel.json` configuration handling page refresh rewrites.
+
+1. Go back to your [Vercel Dashboard](https://vercel.com).
+2. Click **Add New** ➡️ **Project**.
+3. Import the same repository (`kenzo4k/sharabia`).
+4. Configure the options:
+   * **Project Name**: `sharabia-store` (or a custom name)
+   * **Framework Preset**: **Vite** (Vercel should auto-detect this)
+   * **Root Directory**: Click *Edit* and select the **`frontend`** folder.
+   * **Build & Development Settings**: Keep defaults (Build Command: `npm run build`, Output Directory: `dist`).
+5. **Environment Variables**: Add:
+
+| Key | Value | Description |
+| :--- | :--- | :--- |
+| `VITE_API_URL` | `https://your-backend.vercel.app/api` | The URL of your backend project (from Step 3) **followed by `/api`**. |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` | Your Stripe Publishable Key. |
+
+6. Click **Deploy**.
+7. Once complete, copy your production frontend URL (e.g., `https://sharabia-store.vercel.app`).
+
+---
+
+### 🔒 5. Finalize Webhooks & CORS (Resolving Circular Dependencies)
+Now that both the backend and frontend are running, configure the secure links between them.
+
+#### A. Update CORS Allowed Origin in Backend
+1. Go to your **Backend Project** in Vercel.
+2. Select **Settings** ➡️ **Environment Variables**.
+3. Edit the `CLIENT_URL` variable, replacing the temporary local URL with your final Frontend Vercel URL (e.g., `https://sharabia-store.vercel.app`).
+4. Click **Save**.
+5. Re-trigger a build so the new environment variables take effect: Go to **Deployments** ➡️ Click the triple-dots (`...`) on your latest deployment ➡️ Choose **Redeploy**.
+
+#### B. Configure Stripe Webhooks
+To handle purchases, order confirmations, and stock updates automatically:
+1. Go to **Stripe Dashboard** ➡️ **Developers** ➡️ **Webhooks**.
+2. Click **Add Endpoint**.
+3. In the Endpoint URL field, enter: `https://your-backend-url.vercel.app/api/payments/webhook`
+4. Choose the following events to listen to:
+   * `payment_intent.succeeded`
+   * `payment_intent.payment_failed`
+5. Click **Add endpoint**.
+6. Copy the displayed **Signing Secret** (starts with `whsec_...`).
+7. Go back to your **Vercel Backend Project** Environment Variables.
+8. Add a new variable:
+   * **Key**: `STRIPE_WEBHOOK_SECRET`
+   * **Value**: *(Your Stripe signing secret `whsec_...`)*
+9. Redeploy your backend again.
