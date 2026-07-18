@@ -64,7 +64,7 @@ Create `.env` configuration files in both subdirectories before launching:
 ### Backend Configuration (`/backend/.env`)
 ```env
 PORT=5000
-MONGODB_URI=mongodb+srv://kenzomohamed:Mainswain2@cluster0.mmue38g.mongodb.net/sharabiastore?retryWrites=true&w=majority
+MONGODB_URI=
 JWT_SECRET=your_super_secret_jwt_key_here
 CLIENT_URL=http://localhost:5173
 ```
