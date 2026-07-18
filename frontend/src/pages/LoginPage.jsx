@@ -1,0 +1,141 @@
+import * as React from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { LogIn, UserPlus } from 'lucide-react';
+
+const loginSchema = z.object({
+  email: z.string().trim().email('البريد الإلكتروني غير صحيح'),
+  password: z.string().min(6, 'كلمة المرور يجب أن تكون 6 أحرف على الأقل')
+});
+
+export default function LoginPage() {
+  const { login, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [apiError, setApiError] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+
+  // Redirect if already logged in
+  const from = location.state?.from?.pathname || '/';
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, from]);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors }
+  } = useForm({
+    resolver: zodResolver(loginSchema)
+  });
+
+  const onSubmit = async (data) => {
+    setApiError(null);
+    setLoading(true);
+    try {
+      await login(data.email, data.password);
+      navigate(from, { replace: true });
+    } catch (err) {
+      console.error('Customer login error:', err);
+      setApiError(err.response?.data?.message || err.message || 'فشل تسجيل الدخول. يرجى التحقق من البريد الإلكتروني وكلمة المرور.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 bg-slate-50 flex items-center justify-center px-4 py-16 font-sans text-right">
+      <div className="max-w-md w-full space-y-6 animate-slide-up">
+        
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-extrabold text-primary tracking-tight">
+            تسجيل <span className="text-secondary">الدخول</span>
+          </h1>
+          <p className="text-text-secondary text-sm">مرحباً بك مجدداً في شرابية ستور! الرجاء تسجيل الدخول لحسابك.</p>
+        </div>
+
+        <Card className="border-border-subtle bg-white shadow-xl shadow-slate-100">
+          <CardContent className="p-8">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-text-primary text-xs font-bold">البريد الإلكتروني</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="name@example.com"
+                  className="bg-slate-50 border-border-subtle text-text-primary placeholder-slate-400 focus:border-secondary focus:ring-secondary text-right h-11"
+                  {...register('email')}
+                />
+                {errors.email && (
+                  <p className="text-red-500 text-[11px] mt-1 font-semibold">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between flex-row-reverse items-center">
+                  <Label htmlFor="password" className="text-text-primary text-xs font-bold">كلمة المرور</Label>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="bg-slate-50 border-border-subtle text-text-primary placeholder-slate-400 focus:border-secondary focus:ring-secondary text-right h-11"
+                  {...register('password')}
+                />
+                {errors.password && (
+                  <p className="text-red-500 text-[11px] mt-1 font-semibold">{errors.password.message}</p>
+                )}
+              </div>
+
+              {apiError && (
+                <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs font-semibold text-center leading-relaxed">
+                  {apiError}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full h-11 text-sm font-bold bg-secondary hover:bg-secondary-dark text-white cursor-pointer mt-6 flex items-center justify-center gap-2"
+                disabled={loading}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>جاري التحقق...</span>
+                  </span>
+                ) : (
+                  <>
+                    <LogIn className="h-4.5 w-4.5 ml-1" />
+                    <span>تسجيل الدخول</span>
+                  </>
+                )}
+              </Button>
+
+            </form>
+
+            <div className="mt-6 pt-6 border-t border-border-subtle text-center text-xs">
+              <span className="text-text-secondary">ليس لديك حساب؟ </span>
+              <Link to="/register" className="text-secondary hover:underline font-bold inline-flex items-center gap-1">
+                <span>إنشاء حساب جديد</span>
+                <UserPlus className="h-3.5 w-3.5 mr-0.5" />
+              </Link>
+            </div>
+
+          </CardContent>
+        </Card>
+
+      </div>
+    </div>
+  );
+}
