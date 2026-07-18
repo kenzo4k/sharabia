@@ -26,8 +26,28 @@ const PORT = process.env.PORT || 5000;
 app.use(helmet());
 
 // 2. CORS setup
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:5000'];
+if (process.env.CLIENT_URL) {
+  const sanitizedUrl = process.env.CLIENT_URL.endsWith('/')
+    ? process.env.CLIENT_URL.slice(0, -1)
+    : process.env.CLIENT_URL;
+  allowedOrigins.push(sanitizedUrl);
+}
+
 const corsOptions = {
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Allow server-to-server or REST client requests (no origin)
+    if (!origin) return callback(null, true);
+    
+    // Normalize requesting origin for trailing slash safety
+    const requestOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+    
+    if (allowedOrigins.includes(requestOrigin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
